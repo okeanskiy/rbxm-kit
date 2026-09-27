@@ -4,7 +4,7 @@
 	Writes a `diff.rbxm` driver into the target repository's local Git config (not a tracked file),
 	pointing at this checkout's `bin/textconv.luau` and the absolute Lune executable, because Git
 	runs textconv from its own shell where tool shims may not resolve. Rerun it after moving this
-	checkout or upgrading Lune.
+	checkout, upgrading Lune, or updating the kit; each run also clears Git's cached renderings.
 
 	The repository opts in per file type through its tracked `.gitattributes`, for example:
 
@@ -51,6 +51,9 @@ local targetRoot = forwardSlashes(exec("git", { "rev-parse", "--show-toplevel" }
 local command = `"{lunePath}" run "{textconvPath}"`
 exec("git", { "config", "--local", "diff.rbxm.textconv", command }, targetRoot)
 exec("git", { "config", "--local", "diff.rbxm.cachetextconv", "true" }, targetRoot)
+-- Cached renderings come from whichever kit version produced them; drop them so a rerun after
+-- upgrading the kit shows its current output. The ref is absent on first install.
+process.exec("git", { "update-ref", "-d", "refs/notes/textconv/rbxm" }, { cwd = targetRoot })
 print(`Configured diff.rbxm in {targetRoot}:`)
 print(`  textconv = {command}`)
 
