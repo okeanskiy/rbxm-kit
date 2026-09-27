@@ -147,7 +147,7 @@ test("textconv renders properties and script source as text", function()
 	local script = Build.new("Script", { Name = "Door", Source = "print('open')\nreturn nil" })
 	local path = `{SCRATCH}/textconv.rbxm`
 	ModelIo.write(path, { Build.model("Root", { block("Frame", Vector3.new(4, 7, 1)), script }) })
-	local result = lune({ "run", "bin/textconv", path })
+	local result = lune({ "run", "bin/rbxm-kit", "textconv", path })
 	assert(result.ok, `textconv failed: {result.stderr}`)
 	for _, expected in { 'Model "Root"', 'Part "Frame"', ".Size = 4, 7, 1", 'Script "Door"', "| print('open')", "| return nil" } do
 		assert(string.find(result.stdout, expected, 1, true), `textconv output is missing {expected}:\n{result.stdout}`)
@@ -159,10 +159,33 @@ test("diff reports a changed property between two models", function()
 	local after = `{SCRATCH}/after.rbxm`
 	ModelIo.write(before, { Build.model("Root", { block("Pillar", Vector3.new(1, 6, 1)) }) })
 	ModelIo.write(after, { Build.model("Root", { block("Pillar", Vector3.new(1, 9, 1)) }) })
-	local result = lune({ "run", "bin/diff", before, after })
+	local result = lune({ "run", "bin/rbxm-kit", "diff", before, after })
 	assert(result.ok, `diff failed: {result.stderr}`)
 	assert(string.find(result.stdout, "Pillar", 1, true), `diff does not mention the pillar:\n{result.stdout}`)
 	assert(not string.find(result.stdout, "No differences detected", 1, true), "diff missed the size change")
+end)
+
+test("the standalone binary runs every command without the source tree", function()
+	local binary = `{SCRATCH}/bin/rbxm-kit{if process.os == "windows" then ".exe" else ""}`
+	local build = lune({ "run", "tools/build", "--output", binary })
+	assert(build.ok, `build failed: {build.stdout}{build.stderr}`)
+
+	local model = `{SCRATCH}/binary.rbxm`
+	ModelIo.write(model, { Build.model("Root", { block("Pillar", Vector3.new(1, 6, 1)) }) })
+
+	local function run(arguments: { string }): string
+		-- Run from outside the repository so nothing can resolve against the source files.
+		local result = process.exec(binary, arguments, { cwd = process.env.TEMP or process.env.TMPDIR or "/tmp" })
+		assert(result.ok, `rbxm-kit {table.concat(arguments, " ")} failed: {result.stdout}{result.stderr}`)
+		return result.stdout
+	end
+
+	local absoluteModel = `{process.cwd}/{model}`
+	assert(string.find(run({ "--version" }), "0.1.0", 1, true), "version")
+	assert(string.find(run({ "inspect", absoluteModel }), 'Part "Pillar"', 1, true), "inspect")
+	assert(string.find(run({ "check", absoluteModel }), "No issues found", 1, true), "check")
+	assert(string.find(run({ "textconv", absoluteModel }), ".Size = 1, 6, 1", 1, true), "textconv")
+	assert(string.find(run({ "diff", absoluteModel, absoluteModel }), "No differences detected", 1, true), "diff")
 end)
 
 if fs.isDir(SCRATCH) then

@@ -4,6 +4,10 @@
 diffing Roblox `.rbxm` models outside Studio. It is not part of any game build:
 game repositories commit the `.rbxm` files it produces, never these scripts.
 
+It ships as a public repository with standalone binaries on GitHub releases.
+Game repositories install a pinned version through mise:
+`"github:okeanskiy/rbxm-kit" = "<version>"`.
+
 ## Layout
 
 | Path | Contents |
@@ -14,15 +18,22 @@ game repositories commit the `.rbxm` files it produces, never these scripts.
 | `src/model_io.luau` | Read and write models and places, resolving Git LFS pointers. |
 | `src/properties.luau` | Which properties are surfaced by diffs and dumps. |
 | `src/kit.luau` | Entry point for recipes. |
-| `bin/` | Commands: `inspect`, `scripts`, `check`, `diff`, `textconv`, `install_diff`. |
+| `src/commands/` | One module per CLI command, each returning `function(args)`. |
+| `bin/rbxm-kit.luau` | The CLI entry point and command dispatcher. |
+| `tools/bundle.luau`, `tools/build.luau` | Flatten the CLI into one file and compile it with `lune build`. |
 | `recipes/` | Optional saved generator scripts, one model per recipe. |
 | `tests/run.luau` | The kit's own tests. |
 
 ## Working rules
 
 - Run `mise run test` after changing anything in `src` or `bin`.
-- Commands take paths relative to the caller's working directory, so they can be
-  run from a game repository as `lune run <rbxm-kit>/bin/<command> ...`.
+- Commands take paths relative to the caller's working directory. From source,
+  run `lune run bin/rbxm-kit <command> ...`; released, run `rbxm-kit <command> ...`.
+- `lune build` embeds only its input file, so the CLI and everything it reaches
+  must use string-literal relative requires that `tools/bundle.luau` can inline.
+  The binary test in `tests/run.luau` fails if bundling breaks.
+- Releasing: bump `VERSION` in `bin/rbxm-kit.luau`, commit, and push a matching
+  `v<version>` tag. `.github/workflows/release.yml` refuses a mismatched tag.
 - Recipes take the output path as their first argument and write nothing else.
   A recipe runs `Check.run` and refuses to write a model that fails it.
 - Position geometry with `Place` helpers rather than hand-computed coordinates.

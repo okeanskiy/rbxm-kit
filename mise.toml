@@ -8,8 +8,8 @@ run = "lune run tests/run.luau"
 
 [tasks.format]
 description = "Format Luau files"
-run = "stylua src bin recipes tests"
+run = "stylua src bin recipes tests tools"
 
 [tasks.format-check]
 description = "Check Luau formatting"
-run = "stylua --check src bin recipes tests"
+run = "stylua --check src bin recipes tests tools"

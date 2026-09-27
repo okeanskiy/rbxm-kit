@@ -1,0 +1,42 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+
+      - name: Check the tag matches the CLI version
+        run: |
+          version="$(grep -oP '^local VERSION = "\K[^"]+' bin/rbxm-kit.luau)"
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match VERSION $version in bin/rbxm-kit.luau" >&2
+            exit 1
+          fi
+
+      - name: Test
+        run: mise run test
+
+      - name: Build binaries
+        run: |
+          mkdir -p dist
+          for target in windows-x86_64 linux-x86_64 linux-aarch64 macos-x86_64 macos-aarch64; do
+            name="rbxm-kit"
+            case "$target" in windows-*) name="rbxm-kit.exe" ;; esac
+            lune run tools/build --target "$target" --output "out/release/$target/$name"
+            (cd "out/release/$target" && zip -q "$GITHUB_WORKSPACE/dist/rbxm-kit-$GITHUB_REF_NAME-$target.zip" "$name")
+          done
+          (cd dist && sha256sum *.zip > checksums.txt)
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --generate-notes
