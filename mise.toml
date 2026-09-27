@@ -1,0 +1,15 @@
+[tools]
+"github:lune-org/lune" = "v0.10.5"
+stylua = "2.3.1"
+
+[tasks.test]
+description = "Run the kit's own tests"
+run = "lune run tests/run.luau"
+
+[tasks.format]
+description = "Format Luau files"
+run = "stylua src bin recipes tests"
+
+[tasks.format-check]
+description = "Check Luau formatting"
+run = "stylua --check src bin recipes tests"
