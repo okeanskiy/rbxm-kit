@@ -4,7 +4,10 @@
 	Writes a `diff.rbxm` driver into the target repository's local Git config (not a tracked file).
 	Git runs the driver from the repository root through its own shell, so the command must resolve
 	there. The default assumes `rbxm-kit` is on PATH; a repository that pins the kit with mise should
-	pass `--command "mise exec -- rbxm-kit textconv"` so the pinned version is used.
+	pass `--command mise exec -- rbxm-kit textconv` so the pinned version is used.
+
+	`--command` takes every remaining argument, so the command needs no quoting. Task runners such
+	as mise re-split quoted arguments on Windows, which would otherwise break it apart.
 
 	Each run also clears Git's cached renderings, so rerun it after updating the kit.
 
@@ -19,8 +22,9 @@ local process = require("@lune/process")
 local DEFAULT_COMMAND = "rbxm-kit textconv"
 
 local function printUsage()
-	print("Usage: rbxm-kit install-diff <repo-path> [--command <textconv command>]")
-	print(`  --command  Command Git runs to render a model (default: "{DEFAULT_COMMAND}")`)
+	print("Usage: rbxm-kit install-diff <repo-path> [--command <textconv command...>]")
+	print(`  --command  Command Git runs to render a model; takes all remaining arguments`)
+	print(`             (default: {DEFAULT_COMMAND})`)
 end
 
 local function exec(command: string, arguments: { string }, cwd: string?): string
@@ -43,12 +47,12 @@ return function(args: { string })
 			printUsage()
 			process.exit(0)
 		elseif argument == "--command" then
-			index += 1
-			command = args[index]
-			if not command or command == "" then
-				print("--command expects a value")
+			command = table.concat(args, " ", index + 1)
+			if command == "" then
+				print("--command expects a command")
 				process.exit(1)
 			end
+			break
 		elseif repoPath == nil then
 			repoPath = argument
 		else

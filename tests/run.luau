@@ -185,11 +185,23 @@ test("the standalone binary runs every command without the source tree", functio
 	end
 
 	local absoluteModel = `{root}/{model}`
-	assert(string.find(run({ "--version" }), "0.1.0", 1, true), "version")
+	assert(string.find(run({ "--version" }), "0.1.1", 1, true), "version")
 	assert(string.find(run({ "inspect", absoluteModel }), 'Part "Pillar"', 1, true), "inspect")
 	assert(string.find(run({ "check", absoluteModel }), "No issues found", 1, true), "check")
 	assert(string.find(run({ "textconv", absoluteModel }), ".Size = 1, 6, 1", 1, true), "textconv")
 	assert(string.find(run({ "diff", absoluteModel, absoluteModel }), "No differences detected", 1, true), "diff")
+end)
+
+test("install-diff writes an unquoted multi-word command into a repository", function()
+	local repo = `{SCRATCH}/repo`
+	fs.writeDir(repo)
+	assert(process.exec("git", { "init", "-q" }, { cwd = repo }).ok, "git init")
+	fs.writeFile(`{repo}/.gitattributes`, "*.rbxm diff=rbxm\n*.rbxl diff=rbxm\n")
+	local result = lune({ "run", "bin/rbxm-kit", "install-diff", repo, "--command", "mise", "exec", "--", "rbxm-kit", "textconv" })
+	assert(result.ok, `install-diff failed: {result.stdout}{result.stderr}`)
+	local configured = process.exec("git", { "config", "--local", "--get", "diff.rbxm.textconv" }, { cwd = repo })
+	assert(string.gsub(configured.stdout, "%s+$", "") == "mise exec -- rbxm-kit textconv", `configured: {configured.stdout}`)
+	assert(not string.find(result.stdout, "does not route", 1, true), "gitattributes check")
 end)
 
 if fs.isDir(SCRATCH) then
