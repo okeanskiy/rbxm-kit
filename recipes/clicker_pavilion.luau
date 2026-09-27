@@ -49,8 +49,21 @@ for index, position in Place.grid(2, 2, SIZE - 2, CENTER) do
 end
 local frame = Build.model("Pillars", pillars)
 
-local roof = Build.part(styled(wood, { Name = "Roof", Size = Vector3.new(SIZE + 2, 1, SIZE + 2) }))
+local slate = { Material = Enum.Material.Slate, Color = Color3.fromRGB(70, 74, 82) }
+local roof = Build.part(styled(slate, { Name = "Roof", Size = Vector3.new(SIZE + 4, 1, SIZE + 4) }))
 Place.onTopOf(roof, frame)
+
+-- A lantern hanging under the roof's center, lit warm so the pavilion reads at night.
+local lantern = Build.part({
+	Name = "Lantern",
+	Size = Vector3.new(1.5, 1.5, 1.5),
+	Material = Enum.Material.Neon,
+	Color = Color3.fromRGB(255, 196, 120),
+	CanCollide = false,
+}, {
+	Build.new("PointLight", { Brightness = 1.5, Range = 18, Color = Color3.fromRGB(255, 196, 120) }),
+})
+Place.against(lantern, roof, "-Y", 1)
 
 local benches = {}
 for index, side in { -1, 1 } do
@@ -60,8 +73,9 @@ for index, side in { -1, 1 } do
 	table.insert(benches, bench)
 end
 
-local pavilion = Build.model("RestPavilion", { floor, frame, roof, Build.model("Benches", benches) }, {
+local pavilion = Build.model("RestPavilion", { floor, frame, roof, lantern, Build.model("Benches", benches) }, {
 	Attributes = { Recipe = "rbxm-kit/recipes/clicker_pavilion" },
+	Tags = { "RestArea" },
 })
 
 local issues = Check.run({ pavilion }, { maxParts = 32 })
