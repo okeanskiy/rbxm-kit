@@ -173,14 +173,18 @@ test("the standalone binary runs every command without the source tree", functio
 	local model = `{SCRATCH}/binary.rbxm`
 	ModelIo.write(model, { Build.model("Root", { block("Pillar", Vector3.new(1, 6, 1)) }) })
 
+	local root = string.gsub(process.cwd, "[/\\]+$", "")
+	local absoluteBinary = `{root}/{binary}`
+
 	local function run(arguments: { string }): string
-		-- Run from outside the repository so nothing can resolve against the source files.
-		local result = process.exec(binary, arguments, { cwd = process.env.TEMP or process.env.TMPDIR or "/tmp" })
+		-- Run from outside the repository so nothing can resolve against the source files. The
+		-- binary path is absolute because Linux resolves a relative one against the new cwd.
+		local result = process.exec(absoluteBinary, arguments, { cwd = process.env.TEMP or process.env.TMPDIR or "/tmp" })
 		assert(result.ok, `rbxm-kit {table.concat(arguments, " ")} failed: {result.stdout}{result.stderr}`)
 		return result.stdout
 	end
 
-	local absoluteModel = `{process.cwd}/{model}`
+	local absoluteModel = `{root}/{model}`
 	assert(string.find(run({ "--version" }), "0.1.0", 1, true), "version")
 	assert(string.find(run({ "inspect", absoluteModel }), 'Part "Pillar"', 1, true), "inspect")
 	assert(string.find(run({ "check", absoluteModel }), "No issues found", 1, true), "check")
