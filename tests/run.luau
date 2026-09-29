@@ -121,6 +121,91 @@ test("check reports unanchored parts unless allowed", function()
 	assert(#issues == 0, "unanchored part allowed")
 end)
 
+local function overlapCount(issues: { Check.Issue }): number
+	local count = 0
+	for _, issue in issues do
+		if issue.kind == "overlap" then
+			count += 1
+		end
+	end
+	return count
+end
+
+test("check measures rotated parts by their own boxes", function()
+	-- Two boards turned 45 degrees and set side by side: their outer boxes overlap, the boards don't.
+	local turn = Kit.CFrame.Angles(0, math.rad(45), 0)
+	local normal = turn.LookVector
+	local near = Build.part({ Name = "Near", Size = Vector3.new(10, 2, 1), CFrame = Kit.CFrame.new(0, 1, 0) * turn })
+	local far = Build.part({ Name = "Far", Size = Vector3.new(10, 2, 1), CFrame = Kit.CFrame.new(normal * 1.5 + Vector3.new(0, 1, 0)) * turn })
+	assert(overlapCount(Check.run({ Build.folder("Scene", { near, far }) })) == 0, "side by side boards overlap")
+
+	-- Crossed through each other, they do: lifting one board its own height parts them soonest.
+	local across = Build.part({ Name = "Across", Size = Vector3.new(10, 2, 1), CFrame = Kit.CFrame.new(0, 1, 0) * Kit.CFrame.Angles(0, math.rad(-45), 0) })
+	local issues = Check.run({ Build.folder("Scene", { near, across }) })
+	assert(overlapCount(issues) == 1, `crossed boards: expected 1 overlap, got {overlapCount(issues)}`)
+	assert(string.find(issues[1].message, "by 2.00 studs", 1, true), `depth: {issues[1].message}`)
+end)
+
+test("check can let each model's own parts overlap", function()
+	local a1 = block("A1", Vector3.new(4, 1, 4), Vector3.new(0, 0.5, 0))
+	local a2 = block("A2", Vector3.new(2, 2, 2), Vector3.new(0, 1, 0))
+	local b1 = block("B1", Vector3.new(4, 1, 4), Vector3.new(3, 0.5, 0))
+	local loose = block("Loose", Vector3.new(4, 1, 4), Vector3.new(6, 0.5, 0))
+	local scene = Build.folder("Scene", { Build.model("A", { a1, a2 }), Build.model("B", { b1 }), loose })
+	local all = Check.run({ scene })
+	assert(overlapCount(all) == 3, `every pair: expected 3 overlaps, got {overlapCount(all)}`)
+	local between = Check.run({ scene }, { betweenModels = true })
+	assert(overlapCount(between) == 2, `between models: expected 2 overlaps, got {overlapCount(between)}`)
+	for _, issue in between do
+		assert(not string.find(issue.message, "A2", 1, true), `A's own parts reported: {issue.message}`)
+		assert(issue.where[1] == "Scene" and issue.where[2] == "Scene", `where: {table.concat(issue.where, ", ")}`)
+	end
+end)
+
+test("check leaves terrain out", function()
+	local terrain = Build.new("Terrain", { Size = Vector3.new(2048, 64, 2048) })
+	local house = block("House", Vector3.new(20, 10, 20), Vector3.new(0, 5, 0))
+	local issues, totals = Check.run({ Build.new("Workspace", {}, { terrain, house }) })
+	assert(#issues == 0, `terrain reported: {issues[1] and issues[1].message}`)
+	assert(totals.parts == 1, `expected 1 part, got {totals.parts}`)
+end)
+
+test("check sweeps a large model instead of testing every pair", function()
+	-- 20,000 cubes a stud apart, and ten more sunk into ten of them. Testing every pair would take
+	-- 200 million box tests.
+	local cubes = {}
+	for x = 1, 200 do
+		for z = 1, 100 do
+			table.insert(cubes, block(`Cube{x}_{z}`, Vector3.new(1, 1, 1), Vector3.new(x * 2, 0.5, z * 2)))
+		end
+	end
+	for k = 1, 10 do
+		table.insert(cubes, block(`Sunk{k}`, Vector3.new(1, 1, 1), Vector3.new(k * 20 + 0.5, 0.5, 40.5)))
+	end
+	local started = os.clock()
+	local issues = Check.run({ Build.folder("Grid", cubes) })
+	local elapsed = os.clock() - started
+	assert(overlapCount(issues) == 10, `expected 10 overlaps, got {overlapCount(issues)}`)
+	assert(elapsed < 10, `checking 20,010 parts took {elapsed} seconds`)
+end)
+
+test("check lists a long report's first issues and counts the rest by where they are", function()
+	local north, south = {}, {}
+	for k = 1, 30 do
+		table.insert(north, block(`N{k}`, Vector3.new(2, 2, 2), Vector3.new(k * 10, 1, 0)))
+		table.insert(north, block(`NSunk{k}`, Vector3.new(2, 2, 2), Vector3.new(k * 10 + 1, 1, 0)))
+		table.insert(south, block(`S{k}`, Vector3.new(2, 2, 2), Vector3.new(k * 10, 1, 50)))
+		table.insert(south, block(`SSunk{k}`, Vector3.new(2, 2, 2), Vector3.new(k * 10 + 1, 1, 50)))
+	end
+	local path = `{SCRATCH}/long_report.rbxm`
+	ModelIo.write(path, { Build.folder("Root", { Build.folder("North", north), Build.folder("South", south) }) })
+	local result = lune({ "run", "bin/rbxm-kit", "check", path, "--limit", "5" })
+	assert(not result.ok, "check exits non-zero on issues")
+	for _, expected in { "... and 55 more", "Issues by where they are:", "30  [overlap] Root.North  /  Root.North", "60 issue(s) found." } do
+		assert(string.find(result.stdout, expected, 1, true), `report is missing {expected}:\n{result.stdout}`)
+	end
+end)
+
 test("models round-trip through binary and XML files with attributes and tags", function()
 	for _, extension in { "rbxm", "rbxmx" } do
 		local path = `{SCRATCH}/roundtrip.{extension}`

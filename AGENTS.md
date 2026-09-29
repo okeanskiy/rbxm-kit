@@ -14,7 +14,7 @@ Game repositories install a pinned version through mise:
 | --- | --- |
 | `src/build.luau` | Declarative instance construction (`Build.new`, `Build.part`, `Build.model`). |
 | `src/place.luau` | Relative placement over world-space bounds (`onTopOf`, `against`, `grid`, `ring`, `lookAt`). |
-| `src/check.luau` | Offline checks: overlaps, unanchored parts, extent and part budgets. |
+| `src/check.luau` | Offline checks: overlaps (a sweep over bounds, then oriented boxes), unanchored parts, extent and part budgets. |
 | `src/model_io.luau` | Read and write models and places, resolving Git LFS pointers. |
 | `src/properties.luau` | Which properties are surfaced by diffs and dumps. |
 | `src/kit.luau` | Entry point for recipes. |

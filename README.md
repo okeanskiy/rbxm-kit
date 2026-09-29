@@ -44,14 +44,29 @@ Every command accepts `--help`. Commands read `.rbxm`, `.rbxmx`, `.rbxl`, and
 
 ```sh
 rbxm-kit check src/Workspace/Map/Pavilion.rbxm
-rbxm-kit check build.rbxl --max-extent 512 --max-parts 5000
+rbxm-kit check build.rbxl --between-models --tolerance 1 --max-parts 400000
 ```
 
-`check` exits non-zero when it finds issues, so it can run in CI. It works on
-axis-aligned bounding boxes: parts that touch or share a face are fine, while
-parts that sink into each other are reported. Pass `--tolerance <studs>` to
-allow shallow overlaps, or `--allow-unanchored` for models with physics. Checks
-are heuristics, not a physics simulation, so a playtest remains the final word.
+`check` exits non-zero when it finds issues, so it can run in CI. It tests each
+part's own box, rotated with the part: parts that touch or share a face are
+fine, while parts that sink into each other are reported with how deep they
+go. A sweep over the parts' bounds finds the candidate pairs, so a place with
+hundreds of thousands of parts checks in seconds. Terrain is left out.
+
+- `--tolerance <studs>` allows shallow overlaps, such as a driveway meeting a
+  house's base.
+- `--between-models` treats each Model as one object whose own parts may
+  overlap, and reports only overlaps between objects and loose parts. Use it
+  for assembled scenes and maps, where a building's meshes share space by
+  design.
+- `--allow-unanchored` is for models with physics.
+- A long report lists its first 40 issues and counts the rest by the
+  collections they sit in; `--limit <count>` changes how many are listed, and
+  `--all` lists every one.
+
+A part's box is its `Size`, so a MeshPart is measured by its mesh's bounds, not
+its shape. Checks are heuristics, not a physics simulation, so a playtest
+remains the final word.
 
 ## Readable model diffs in Git
 
