@@ -19,7 +19,7 @@ rbxm-kit ships as a standalone binary for Windows, Linux, and macOS on the
 
 ```toml
 [tools]
-"github:okeanskiy/rbxm-kit" = "0.1.1"
+"github:okeanskiy/rbxm-kit" = "0.2.0"
 ```
 
 Then run `mise install`. Without mise, download the archive for your platform

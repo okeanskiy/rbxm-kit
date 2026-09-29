@@ -270,7 +270,7 @@ test("the standalone binary runs every command without the source tree", functio
 	end
 
 	local absoluteModel = `{root}/{model}`
-	assert(string.find(run({ "--version" }), "0.1.1", 1, true), "version")
+	assert(string.find(run({ "--version" }), "0.2.0", 1, true), "version")
 	assert(string.find(run({ "inspect", absoluteModel }), 'Part "Pillar"', 1, true), "inspect")
 	assert(string.find(run({ "check", absoluteModel }), "No issues found", 1, true), "check")
 	assert(string.find(run({ "textconv", absoluteModel }), ".Size = 1, 6, 1", 1, true), "textconv")

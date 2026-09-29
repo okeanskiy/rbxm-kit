@@ -7,7 +7,7 @@
 
 local process = require("@lune/process")
 
-local VERSION = "0.1.1"
+local VERSION = "0.2.0"
 
 local COMMANDS: { [string]: { run: ({ string }) -> (), summary: string } } = {
 	inspect = { run = require("../src/commands/inspect"), summary = "Print a model's hierarchy and class counts" },
